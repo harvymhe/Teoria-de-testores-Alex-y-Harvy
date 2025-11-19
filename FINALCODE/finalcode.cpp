@@ -26,23 +26,27 @@ vector<int> conjunto_a_vector_binario(const Conjunto& C, int columnas) {
 
 // Imprimir matriz
 void imprimir_matriz(const Matriz& M) {
-    if (M.empty()) { cout << "Matriz vacia.\n"; return; }
+    if (M.empty()) {
+        cout << "Matriz vacia.\n";
+        return;
+    }
 
     int filas = M.size();
     int columnas = M[0].size();
 
-    cout << "\n   ";
-    for (int j = 0; j < columnas; ++j)
-        cout << setw(2) << char('A' + j);
+    cout << "\n     ";  // espacio para el índice de filas
+    for (int j = 1; j <= columnas; ++j)
+        cout << setw(3) << j;
     cout << "\n";
 
     for (int i = 0; i < filas; ++i) {
-        cout << setw(2) << i + 1 << ": ";
+        cout << setw(3) << i + 1 << ": ";
         for (int j = 0; j < columnas; ++j)
-            cout << setw(2) << M[i][j];
+            cout << setw(3) << M[i][j];
         cout << "\n";
     }
 }
+
 
 // Densidad
 double densidad(const Matriz& M) {
@@ -103,7 +107,6 @@ Matriz aMatrizBasica(const Matriz& M) {
     return BM;
 }
 
-// Contar unos y ordenar filas (usado para probar YYC con reorden)
 int contar_unos(const vector<int>& fila) {
     return accumulate(fila.begin(), fila.end(), 0);
 }
@@ -111,10 +114,63 @@ int contar_unos(const vector<int>& fila) {
 Matriz ordenar_filas_por_unos(const Matriz& M) {
     Matriz ordenada = M;
     sort(ordenada.begin(), ordenada.end(), [](const vector<int>& a, const vector<int>& b) {
-        return contar_unos(a) < contar_unos(b); // ascendente; empates arbitrarios
+        return contar_unos(a) < contar_unos(b);
     });
     return ordenada;
 }
+
+// ======================================================================
+// ========================== OPERADORES ================================
+// ======================================================================
+
+Matriz phi(const Matriz& A, const Matriz& B) {
+    if (A.size() != B.size()) {
+        cerr << "Error: phi requiere que A y B tengan el mismo numero de filas.\n";
+        return {};
+    }
+
+    Matriz resultado;
+    for (size_t i = 0; i < A.size(); ++i) {
+        vector<int> fila = A[i];
+        fila.insert(fila.end(), B[i].begin(), B[i].end());
+        resultado.push_back(fila);
+    }
+    return resultado;
+}
+
+Matriz theta(const Matriz& A, const Matriz& B) {
+    Matriz resultado;
+    for (const auto& filaA : A) {
+        for (const auto& filaB : B) {
+            vector<int> fila = filaA;
+            fila.insert(fila.end(), filaB.begin(), filaB.end());
+            resultado.push_back(fila);
+        }
+    }
+    return resultado;
+}
+
+Matriz gamma(const Matriz& A, const Matriz& B) {
+    size_t filasA = A.size(), filasB = B.size();
+    size_t colsA = A[0].size(), colsB = B[0].size();
+    size_t filas = filasA + filasB;
+    size_t cols = colsA + colsB;
+
+    Matriz resultado(filas, vector<int>(cols, 0));
+
+    // Copiar A en la esquina superior izquierda
+    for (size_t i = 0; i < filasA; ++i)
+        for (size_t j = 0; j < colsA; ++j)
+            resultado[i][j] = A[i][j];
+
+    // Copiar B en la esquina inferior derecha
+    for (size_t i = 0; i < filasB; ++i)
+        for (size_t j = 0; j < colsB; ++j)
+            resultado[filasA + i][colsA + j] = B[i][j];
+
+    return resultado;
+}
+
 
 // ======================================================================
 // ============================== YYC ==================================
@@ -128,13 +184,11 @@ bool tiene_uno_en_fila(const vector<int>& fila, const Conjunto& conjunto) {
 }
 
 bool cumple_criterios(const Matriz& MB, const Conjunto& C, int hastaFila) {
-    int filas = hastaFila + 1;
     int columnas = C.size();
-
     int cuenta_filas = 0;
     vector<int> suma_col(columnas, 0);
 
-    for (int i = 0; i < filas; ++i) {
+    for (int i = 0; i <= hastaFila; ++i) {
         int suma = 0;
         int j = 0;
         for (int col : C) {
@@ -214,7 +268,6 @@ vector<Conjunto> YYC(const Matriz& MB) {
 // ======================================================================
 // ============================== BT ===================================
 // ======================================================================
-// ==> MISMA LOGICA EXACTA QUE TU BT (con fixes anti-ciclo) <==
 
 vector<vector<int>> BT(const Matriz& MB) {
 
@@ -273,7 +326,7 @@ vector<vector<int>> BT(const Matriz& MB) {
             if (fila_c) filas_ceros.push_back(i);
         }
 
-        int K = COLS + 1; // empezar con el valor maximo
+        int K = COLS + 1;
         for (int f : filas_ceros) {
             int ultima_pos = -1;
             for (int j = COLS - 1; j >= 0; j--) {
@@ -357,170 +410,300 @@ vector<vector<int>> BT(const Matriz& MB) {
     return testores;
 }
 
-// ======================================================================
-// ================================ MAIN ================================
-// ======================================================================
-
 int main() {
-    Matriz M;
-    Matriz MB;
+    Matriz M, MB, ultimaGeneradaPotenciada;
+    int op;
 
     while (true) {
         cout << "\n================ MENU PRINCIPAL ================\n";
-        cout << "1) Generar matriz booleana aleatoria\n";
-        cout << "2) Generar matriz A\n";
-        cout << "3) Utilizar matriz B\n";
+        cout << "1) Generar matriz aleatoria y aplicar algoritmo\n";
+        cout << "2) Usar Matriz A y aplicar algoritmo\n";
+        cout << "3) Usar Matriz B y aplicar algoritmo\n";
+        cout << "4) Operadores entre A y B\n";
+        cout << "5) phi^n o gamma^n desde theta(A,B)\n";
+        cout << "6) Aplicar YYC o BT sobre ultima generada\n";
         cout << "0) Salir\n";
         cout << "Ingrese opcion: ";
-
-        int op;
         cin >> op;
 
         if (op == 0) break;
 
-        if (op == 1) {
-            int filas, columnas;
-            cout << "\nIngrese filas: ";
-            cin >> filas;
-            cout << "Ingrese columnas: ";
-            cin >> columnas;
+        if (op >= 1 && op <= 3) {
+            // ------------------ CREAR MATRIZ ------------------
+            if (op == 1) {
+                int filas, columnas;
+                cout << "\nIngrese filas: "; cin >> filas;
+                cout << "Ingrese columnas: "; cin >> columnas;
 
-            random_device rd;
-            mt19937 gen(rd());
-            bernoulli_distribution dist(0.5);
+                random_device rd;
+                mt19937 gen(rd());
+                bernoulli_distribution dist(0.5);
+                M = Matriz(filas, vector<int>(columnas));
 
-            M = Matriz(filas, vector<int>(columnas));
+                for (int i = 0; i < filas; ++i)
+                    for (int j = 0; j < columnas; ++j)
+                        M[i][j] = dist(gen);
 
-            for (int i = 0; i < filas; i++)
-                for (int j = 0; j < columnas; j++)
-                    M[i][j] = dist(gen);
-
-            cout << "\n Matriz generada:\n";
-            imprimir_matriz(M);
-        }
-
-        else if (op == 2) {
-            M = {
-                {0,0,0,0,0,0},
-                {0,0,1,1,0,1},
-                {0,1,0,1,1,1},
-                {0,0,0,1,1,0},
-                {0,1,1,0,0,0},
-                {1,0,0,1,0,0},
-                {1,1,1,1,0,0},
-                {0,1,0,0,0,1},
-                {1,0,0,1,0,1},
-                {0,0,1,1,0,1}
-            };
-
-            cout << "\n Matriz cargada:\n";
-            imprimir_matriz(M);
-        }
-        else if (op == 3) {
-            M = {
-                {1,1,1,0,0,0},
-                {1,0,1,0,1,0},
-                {0,0,0,1,0,0},
-                {1,0,0,0,0,1},
-                {0,1,0,0,0,1},
-                {0,0,1,0,0,1}
-            };
-
-            cout << "\n Matriz B cargada:\n";
-            imprimir_matriz(M);
-        }
-        else {
-            cout << "\n Opcion invalida. Intente nuevamente.\n";
-            continue;
-        }
-
-        MB = aMatrizBasica(M);
-
-        cout << "\n MATRIZ BASICA:\n";
-        imprimir_matriz(MB);
-
-        cout << "Densidad: " << densidad(MB) << "\n";
-
-        bool usarPredeterminadoBT = (op == 3);
-        cout << "\n===== Algoritmo a ejecutar =====\n";
-        cout << "1) YYC\n";
-        if (usarPredeterminadoBT) {
-            cout << "2) BT (predeterminado)\n";
-            cout << "Opcion [2]: ";
-        } else {
-            cout << "2) BT\n";
-            cout << "Opcion: ";
-        }
-
-        int alg = 0;
-        if (usarPredeterminadoBT) {
-            alg = 2;
-            string entrada_alg;
-            getline(cin >> ws, entrada_alg);
-            if (!entrada_alg.empty()) {
-                try { alg = stoi(entrada_alg); }
-                catch (...) { alg = 2; }
+                cout << "\nMatriz aleatoria generada:\n";
             }
-        } else {
+            else if (op == 2) {
+                M = {
+                    {0,0,0,0,0,0},
+                    {0,0,1,1,0,1},
+                    {0,1,0,1,1,1},
+                    {0,0,0,1,1,0},
+                    {0,1,1,0,0,0},
+                    {1,0,0,1,0,0},
+                    {1,1,1,1,0,0},
+                    {0,1,0,0,0,1},
+                    {1,0,0,1,0,1},
+                    {0,0,1,1,0,1}
+                };
+                cout << "\nMatriz A cargada:\n";
+            }
+            else if (op == 3) {
+                M = {
+                    {1,1,1,0,0,0},
+                    {1,0,1,0,1,0},
+                    {0,0,0,1,0,0},
+                    {1,0,0,0,0,1},
+                    {0,1,0,0,0,1},
+                    {0,0,1,0,0,1}
+                };
+                cout << "\nMatriz B cargada:\n";
+            }
+
+            imprimir_matriz(M);
+
+            // ------------------ CALCULAR MATRIZ BASICA ------------------
+            MB = aMatrizBasica(M);
+            cout << "\nMatriz Basica (MB):\n";
+            imprimir_matriz(MB);
+            cout << "Densidad: " << densidad(MB) << "\n";
+
+            // ------------------ ALGORITMO ------------------
+            cout << "\nSeleccione algoritmo:\n1) YYC\n2) BT\nOpcion: ";
+            int alg;
             cin >> alg;
-        }
 
-        if (alg == 1) {
+            cout << "\nOrdenamiento:\n1) Normal\n2) Ascendente por unos\nOpcion: ";
+            int orden;
+            cin >> orden;
 
-            cout << "\n Ejecutando algoritmo YYC...\n";
-            cout << "Elija modo de ejecucion:\n";
-            cout << "1) Orden original\n";
-            cout << "2) Filas ordenadas por cantidad de unos\n";
-            cout << "3) Ambos\n";
-            cout << "Opcion [3]: ";
-            int modo = 3;
-            string entrada_modo;
-            getline(cin >> ws, entrada_modo);
-            if (!entrada_modo.empty()) {
-                try { modo = stoi(entrada_modo); }
-                catch (...) { modo = 3; }
-            }
-            if (modo < 1 || modo > 3) modo = 3;
+            auto start = chrono::high_resolution_clock::now();
 
-            auto ejecutaYYC = [&](const Matriz& mat, const string& titulo) {
-                cout << "\n--- " << titulo << " ---\n";
-                auto inicio = chrono::high_resolution_clock::now();
-                auto testores = YYC(mat);
-                auto fin = chrono::high_resolution_clock::now();
-                double ms = chrono::duration<double, milli>(fin - inicio).count();
-                cout << "\nTiempo YYC (" << titulo << "): "
-                     << fixed << setprecision(3) << ms << " ms\n";
-                cout << "Testores YYC (" << titulo << "):\n";
+            Matriz MB_usada = (orden == 2) ? ordenar_filas_por_unos(MB) : MB;
+
+            if (alg == 1) {
+                auto testores = YYC(MB_usada);
+                auto end = chrono::high_resolution_clock::now();
+                auto dur = chrono::duration_cast<chrono::milliseconds>(end - start).count();
+
+                cout << "\nTestores YYC:\n";
                 for (auto& C : testores) {
-                    vector<int> bin = conjunto_a_vector_binario(C, mat[0].size());
+                    vector<int> bin = conjunto_a_vector_binario(C, MB_usada[0].size());
                     for (int b : bin) cout << b << " ";
                     cout << "\n";
                 }
-                cout << "\n";
-            };
+                cout << "Cantidad: " << testores.size() << "\n";
+                cout << "Tiempo: " << dur << " ms\n";
+            } else {
+                auto testores = BT(MB_usada);
+                auto end = chrono::high_resolution_clock::now();
+                auto dur = chrono::duration_cast<chrono::milliseconds>(end - start).count();
 
-            if (modo == 1 || modo == 3) {
-                ejecutaYYC(MB, "orden original");
+                cout << "\nTestores BT:\n";
+                for (auto& fila : testores) {
+                    for (int x : fila) cout << x << " ";
+                    cout << "\n";
+                }
+                cout << "Cantidad: " << testores.size() << "\n";
+                cout << "Tiempo: " << dur << " ms\n";
             }
-            if (modo == 2 || modo == 3) {
-                Matriz MB_ordenada = ordenar_filas_por_unos(MB);
-                ejecutaYYC(MB_ordenada, "filas ordenadas por cantidad de unos");
-            }
+            continue;
         }
+
+		else if (op == 4) {
+    		cout << "\n===== APLICAR OPERADORES ENTRE MATRICES A y B =====\n";
+
+    		Matriz MB_A = {
+        	{0,0,1,1,0,1},
+        	{0,1,0,1,1,1},
+        	{1,1,1,1,0,0},
+        	{1,0,0,1,0,1}
+        	
+    	};
+
+    		Matriz MB_B = {
+        	{1,1,1,0,0,0},
+        	{1,0,1,0,1,0},
+        	{0,0,0,1,0,0},
+        	{1,0,0,0,0,1},
+        	{0,1,0,0,0,1},
+        	{0,0,1,0,0,1}
+    	};
+
+    	cout << "Seleccione el operador a aplicar entre A y B:\n";
+    	cout << "1) theta(A, B)\n";
+    	cout << "2) phi(A, B)\n";
+    	cout << "3) gamma(A, B)\n";
+    	cout << "Opcion: ";
+
+    	int opOperador;
+    	cin >> opOperador;
+
+   		Matriz resultado;
+
+    	if (opOperador == 1) resultado = theta(MB_A, MB_B);
+    	else if (opOperador == 2) resultado = phi(MB_A, MB_B);
+    	else if (opOperador == 3) resultado = gamma(MB_A, MB_B);
+    	else {
+        	cout << "Opción invalida.\n";
+        	continue;
+    	}
+
+    	cout << "\nMatriz resultado del operador seleccionado:\n";
+    	imprimir_matriz(resultado);
+    	cout << "Filas: " << resultado.size()
+         	<< ", Columnas: " << (resultado.empty() ? 0 : resultado[0].size()) << "\n";
+        	continue;
+	}	
+		else if (op == 5) {
+    		cout << "\n===== GENERAR phi^n o gamma^n A PARTIR DE theta(A, B) =====\n";
+
+    		Matriz MB_A = {
+        		{0,0,1,1,0,1},
+        		{0,1,0,1,1,1},
+        		{1,1,1,1,0,0},
+        		{1,0,0,1,0,1}
+    		};
+
+    		Matriz MB_B = {
+       		 	{1,1,1,0,0,0},
+        		{1,0,1,0,1,0},
+        		{0,0,0,1,0,0},
+        		{1,0,0,0,0,1},
+        		{0,1,0,0,0,1},
+        		{0,0,1,0,0,1}
+    		};
+
+    		Matriz base = theta(MB_A, MB_B);
+    		cout << "theta(A, B):\n";
+    		imprimir_matriz(base);
+
+    		cout << "\nSeleccione operador:\n1) phi\n2) gamma\nOpcion: ";
+    		int opOp;
+    		cin >> opOp;
+
+    		cout << "Ingrese el valor de n (potencia del operador): ";
+    		int n;
+    		cin >> n;
+
+    		Matriz resultado = base;
+
+    		for (int i = 1; i <= n; ++i) {
+        		if (opOp == 1)
+            		resultado = phi(resultado, resultado);
+        		else if (opOp == 2)
+            		resultado = gamma(resultado, resultado);
+    		}
+
+    		cout << "\nResultado final del operador aplicado " << n << " veces:\n";
+    		imprimir_matriz(resultado);
+    		cout << "Filas: " << resultado.size()
+         		<< ", Columnas: " << (resultado.empty() ? 0 : resultado[0].size()) << "\n";
+         	 	ultimaGeneradaPotenciada = resultado;	
+         		continue;
+         }
+         
+         // ------------------------------------------------------
+        // 6. Aplicar YYC o BT
+        // ------------------------------------------------------
+        
+		
+		else if (op == 6) {
+    		if (ultimaGeneradaPotenciada.empty()) {
+        		cout << "\nNo hay una matriz generada aún. Usa la opción 5 primero.\n";
+        		continue;
+    		}
+
+    		cout << "\n===== APLICAR YYC o BT SOBRE LA ÚLTIMA MATRIZ GENERADA =====\n";
+
+    		imprimir_matriz(ultimaGeneradaPotenciada);
+    		cout << "Filas: " << ultimaGeneradaPotenciada.size()
+        		<< ", Columnas: " << (ultimaGeneradaPotenciada.empty() ? 0 : ultimaGeneradaPotenciada[0].size()) << "\n";
+
+    		// Escoger algoritmo
+    		cout << "\nSeleccione algoritmo:\n";
+    		cout << "1) YYC\n";
+    		cout << "2) BT\n";
+    		cout << "Opción: ";
+   		 	int alg;
+    		cin >> alg;
+
+    		// Escoger tipo de ordenamiento
+    		cout << "\nTipo de ordenamiento:\n";
+    		cout << "1) Orden normal\n";
+    		cout << "2) Orden ascendente por número de unos\n";
+    		cout << "Opción: ";
+    		int orden;
+    		cin >> orden;
+
+    		// Preparar matriz básica
+    		Matriz MB = aMatrizBasica(ultimaGeneradaPotenciada);
+
+    		if (MB.empty()) {
+        		cout << "\nLa matriz básica resultó vacía. No se puede continuar.\n";
+        		continue;
+    		}
+
+    		// Iniciar cronómetro desde antes del ordenamiento
+    		auto start = std::chrono::high_resolution_clock::now();
+
+    		Matriz MB_usada = (orden == 2) ? ordenar_filas_por_unos(MB) : MB;
+
+    		if (alg == 1) {
+        		auto testores = YYC(MB_usada);
+
+        		auto end = std::chrono::high_resolution_clock::now();
+        		auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+
+        		cout << "Testores YYC:\n";
+        		for (auto& C : testores) {
+            		vector<int> bin = conjunto_a_vector_binario(C, MB_usada[0].size());
+            		for (int b : bin) cout << b << " ";
+            		cout << "\n";
+        		}
+
+        		cout << "Número de testores típicos encontrados: " << testores.size() << "\n";
+        		cout << "Tiempo de ejecución total: " << duration << " ms\n";
+
+    	} else if (alg == 2) {
+        	auto testores = BT(MB_usada);
+
+        	auto end = std::chrono::high_resolution_clock::now();
+        	auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+
+        	cout << "Testores BT:\n";
+        	for (auto& fila : testores) {
+           		for (int x : fila) cout << x << " ";
+            	cout << "\n";
+        	}
+
+        		cout << "Número de testores típicos encontrados: " << testores.size() << "\n";
+        		cout << "Tiempo de ejecución total: " << duration << " ms\n";
+        		continue;
+    }
+}
+
+        // ------------------------------------------------------
+        // Opción inválida
+        // ------------------------------------------------------
         else {
-
-            cout << "\n Ejecutando algoritmo BT...\n";
-
-            auto testoresBT = BT(MB);
-
-            cout << "\n Testores BT (matriz binaria):\n";
-            for (auto& fila : testoresBT) {
-                for (int x : fila) cout << x << " ";
-                cout << "\n";
-            }
-            cout << "\n";
+            cout << "\n Opcion invalida.\n";
+            continue;
         }
     }
-
+	
     return 0;
 }
